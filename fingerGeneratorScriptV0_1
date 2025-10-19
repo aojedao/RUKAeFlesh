@@ -1,0 +1,152 @@
+FeatureScript 2716;
+import(path : "onshape/std/common.fs", version : "2716.0");
+
+// mesh_base_feature_interactive_precondition.fs
+// This FeatureScript creates a base under an imported mesh, with interactive inputs
+// using the precondition pattern.
+
+//import(path : "onshape/std/geometry.fs", version : "531.0"); // Example import, adjust if needed
+//import(path : "onshape/std/math.fs", version : "531.0"); // For PI, cos, sin, sqrt if not already in geometry.fs
+//import(path : "onshape/std/unit.fs", version : "531.0"); // For unit definitions like meter, inch etc.
+
+annotation {
+    "Feature Type Name" : "Mesh Base Creator",
+    "Feature Name Template" : "Mesh Base",
+    // "Editing Logic Function" : "editMeshBaseLogic" // Add this if you implement edit logic later
+}
+export const meshBaseFeatureInteractive = defineFeature(function(context is Context, id is Id, definition is map) // Note: 'definition is map'
+    precondition
+    {
+        // Mesh Input
+        annotation { "Name" : "Select Mesh Body", "Filter" : EntityType.BODY, "MaxNumberOfPicks" : 1 } //Only takes bodies, not sure about mesh yet
+        definition.meshBody is Query; // Defines the meshBody parameter for selection
+
+        // Base Box Dimensions
+        annotation { "Name" : "Base Box Depth"}
+        isLength(definition.baseBoxDepth, LENGTH_BOUNDS); // Using a standard bound
+
+        annotation { "Name" : "Corner Radius"}
+        isLength(definition.cornerRadius, LENGTH_BOUNDS);
+
+        // Second Box Dimensions
+        annotation { "Name" : "Second Box Depth"}
+        isLength(definition.secondBoxDepth, POSITIVE_LENGTH_BOUNDS);
+
+        annotation { "Name" : "Plane Offset (underneath)"}
+        isLength(definition.planeOffset, POSITIVE_LENGTH_BOUNDS);
+    }
+    { // Postcondition (main feature logic) starts here
+        // Get parameters from the 'definition' map
+        const meshBody = definition.meshBody as Query;
+        const baseBoxDepth = definition.baseBoxDepth;
+        const cornerRadius = definition.cornerRadius ;
+        const secondBoxDepth = definition.secondBoxDepth;
+        const planeOffset = definition.planeOffset ;
+
+        // Get the bounding box of the selected mesh body
+        const boundingBox = evBox3d(context, { "topology": meshBody, "tight": true });
+        
+        const minX = boundingBox.minCorner[0];
+        const minY = boundingBox.minCorner[1];
+        const minZ = boundingBox.minCorner[2];
+        const maxX = boundingBox.maxCorner[0];
+        const maxY = boundingBox.maxCorner[1];
+        const maxZ = boundingBox.maxCorner[2];
+
+        const boxWidth = maxX - minX;
+        const boxDepth = maxY - minY;
+        const centerX = (minX + maxX) / 2;
+        const centerY = (minY + maxY) / 2;
+        const bottomOfMeshZ = minZ; // The lowest point of the mesh
+
+        // --- Create the first box (extruded from the bottom of the mesh) with rounded corners ---
+        //const sketchPlane1 = plane(context, id + "sketchPlane1", { // Use id for unique names
+        //    "origin": vector(centerX, centerY, bottomOfMeshZ),
+        //    "normal": Z_DIRECTION
+        //});
+        
+        const sketchPlane1 = plane(vector(centerX, centerY, bottomOfMeshZ), vector(0,0,1), vector(1,0,0));
+
+        const sketchForRoundedRect = newSketchOnPlane(context, id + "sketchForRoundedRect", { // Use id for unique names
+            "sketchPlane": sketchPlane1
+        });
+        
+        
+        // Calculate dimensions for the rounded rectangle.
+        const halfWidth = boxWidth / 2;
+        const halfDepth = boxDepth / 2;
+
+        const cornerOffset = cornerRadius;
+
+        // Points for the outer rectangle (before rounding) centered on the mesh's projected center
+        const p1 = vector(centerX - halfWidth, centerY - halfDepth); // Bottom-left
+        const p2 = vector(centerX + halfWidth, centerY - halfDepth); // Bottom-right
+        const p3 = vector(centerX + halfWidth, centerY + halfDepth); // Top-right
+        const p4 = vector(centerX - halfWidth, centerY + halfDepth); // Top-left
+
+        // Lines for the straight segments
+        sketchForRoundedRect.addLine(p1.x + cornerOffset, p1.y, p2.x - cornerOffset, p2.y); // Bottom
+        sketchForRoundedRect.addLine(p2.x, p2.y + cornerOffset, p3.x, p3.y - cornerOffset); // Right
+        sketchForRoundedRect.addLine(p3.x - cornerOffset, p3.y, p4.x + cornerOffset, p4.y); // Top
+        sketchForRoundedRect.addLine(p4.x, p4.y - cornerOffset, p1.x, p1.y + cornerOffset); // Left
+
+        // Arc centers and points (for 90-degree arcs)
+        const centerBL = vector(p1.x + cornerOffset, p1.y + cornerOffset);
+        const centerBR = vector(p2.x - cornerOffset, p2.y + cornerOffset);
+        const centerTR = vector(p3.x - cornerOffset, p3.y - cornerOffset);
+        const centerTL = vector(p4.x + cornerOffset, p4.y - cornerOffset);
+
+        // Add arcs for the corners
+        sketchForRoundedRect.addArc(centerBL, vector(p1.x + cornerOffset, p1.y), vector(p1.x, p1.y + cornerOffset), ArcDirection.COUNTER_CLOCKWISE);
+        sketchForRoundedRect.addArc(centerBR, vector(p2.x, p2.y + cornerOffset), vector(p2.x - cornerOffset, p2.y), ArcDirection.COUNTER_CLOCKWISE);
+        sketchForRoundedRect.addArc(centerTR, vector(p3.x - cornerOffset, p3.y), vector(p3.x, p3.y - cornerOffset), ArcDirection.COUNTER_CLOCKWISE);
+        sketchForRoundedRect.addArc(centerTL, vector(p4.x, p4.y - cornerOffset), vector(p4.x + cornerOffset, p4.y), ArcDirection.COUNTER_CLOCKWISE);
+
+        skSolve(sketchForRoundedRect); // Solve the sketch to ensure it's valid before extruding
+
+        opExtrude(context, id + "roundedBaseBoxExtrude", {
+            "sketches": [sketchForRoundedRect],
+            "depth": baseBoxDepth,
+            "direction": Direction.POSITIVE,
+            "endCondition": EndCondition.BLIND,
+            "operationType": NewBodyOperationType.NEW
+        });
+
+        // --- Create a plane 'planeOffset' underneath the first box ---
+        const newPlaneZ = bottomOfMeshZ - planeOffset;
+
+        const sketchPlane2 = newPlane(context, id + "sketchPlane2", { // Use id for unique names
+            "origin": vector(centerX, centerY, newPlaneZ),
+            "normal": Z_DIRECTION
+        });
+
+        // --- Extrude another box underneath ---
+        const sketch2 = newSketch(context, id + "sketch2", { // Use id for unique names
+            "sketchPlane": sketchPlane2
+        });
+
+        // This box will have the same footprint as the base box for simplicity,
+        // centered on the projected mesh center.
+        const rectX1 = centerX - halfWidth;
+        const rectY1 = centerY - halfDepth;
+        sketch2.addRect(rectX1, rectY1, boxWidth, boxDepth, false);
+
+        skSolve(sketch2); // Solve the sketch
+
+        opExtrude(context, id + "secondBoxExtrude", {
+            "sketches": [sketch2],
+            "depth": secondBoxDepth,
+            "direction": Direction.POSITIVE,
+            "endCondition": EndCondition.BLIND,
+            "operationType": NewBodyOperationType.NEW
+        });
+
+    });
+
+// Define common bounds that match the Spur Gear script's style
+const POSITIVE_LENGTH_BOUNDS =
+{
+    (meter) : [1e-5, 0.001, 1000], // min, default, max
+    (millimeter) : 1.0,
+    (inch) : 0.04
+} as LengthBoundSpec;

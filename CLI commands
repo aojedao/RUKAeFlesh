@@ -1,0 +1,21 @@
+
+Install:
+
+sudo apt-get install -y libblosc-dev
+
+
+sudo apt install build-essential python3 libbz2-dev libz-dev libicu-dev
+
+
+sudo apt-get install libboost-iostreams-dev
+
+sudo apt-get install libmpfr-dev
+
+sudo apt-get install libboost-all-dev
+
+
+cmake -DCMAKE_BUILD_TYPE=release .. -DTBB_ROOT=/home/user/Downloads/oneapi-tbb-2022.2.0 -DBOOST_ROOT=/home/user/Downloads/boost_1_83_0 -DBoost_DIR=/home/user/Downloads/boost_1_83_0 -DBoost_IOSTREAMS_LIBRARY_RELEASE=/usr/share/doc/libboost-iostreams/dev
+
+
+(eflesh) user@envy360:/media/user/1874BCE074BCC234/GRAIL/eFlesh/microstructure/microstructure_inflators/build/isosurface_inflator$ ./cut_cells_cli -p /media/user/1874BCE074BCC234/GRAIL/eFlesh/microstructure/microstructure_inflators/data.json --surface /home/user/Downloads/20mm_cube.stl --gridSize 8 -o /hom/user/Download -r 50
+
