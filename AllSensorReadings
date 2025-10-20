@@ -26,11 +26,13 @@ DATA_STREAMS = {}
 # Function to generate the stream keys
 def generate_stream_keys():
     keys = []
-    # All boards (0 to MAX_BOARDS-1) use sensor 0 since that's what Arduino sends
+    # Generate keys for all possible board/sensor combinations
     for board in range(0, MAX_BOARDS):
-        sensor = 0  # Arduino only sends sensor 0 data
-        for axis in ['X', 'Y', 'Z']:
-            keys.append(f"B{board}S{sensor}{axis}")
+        # Board types: 5X boards have sensors 0-4, 1X boards have sensor 0
+        # For simplicity, generate keys for all possible sensors (0-4) for each board
+        for sensor in range(0, 5):  # Max 5 sensors per board
+            for axis in ['X', 'Y', 'Z']:
+                keys.append(f"B{board}S{sensor}{axis}")
     return keys
 
 # Initialize data structures (Sample number is the common x-axis for all)
@@ -46,11 +48,12 @@ for key in ALL_KEYS:
     # Initialize with 0 to prevent Matplotlib errors on first draw
     DATA_STREAMS[key].append(0.0) 
 
-# Regular expression to parse the input: "Board0SensorX:-7.20"
+# Regular expression to parse the input: "Board0Sensor0X:-7.20" (Arduino output format)
 # Group 1: Board Number (0)
-# Group 2: Axis (X)
-# Group 3: Value (-7.20)
-PARSE_PATTERN = re.compile(r"Board(\d+)Sensor([XYZ]):\s*([-+]?\d*\.?\d+)")
+# Group 2: Sensor Number (0)
+# Group 3: Axis (X)
+# Group 4: Value (-7.20)
+PARSE_PATTERN = re.compile(r"Board(\d+)Sensor(\d+)([XYZ]):\s*([-+]?\d*\.?\d+)")
 
 # --- Serial and Logging Setup ---
 
@@ -86,7 +89,7 @@ def get_serial_data():
                 return False # Nothing to process
             
             # Debug: print the line we're trying to parse (first few characters only)
-            print(f"Parsing line: '{line[:100]}...'")
+            # print(f"Parsing line: '{line[:100]}...'")  # Comment out to reduce spam
             
             # Find all matches in the line (multiple sensor readings per line)
             matches = PARSE_PATTERN.findall(line)
@@ -104,8 +107,9 @@ def get_serial_data():
                 
                 for match in matches:
                     board_num = match[0]
-                    axis = match[1]
-                    value_str = match[2]
+                    sensor_num = match[1]  # Now we capture the actual sensor number
+                    axis = match[2]
+                    value_str = match[3]
                     
                     try:
                         value = float(value_str)
@@ -113,8 +117,7 @@ def get_serial_data():
                         print(f"Skipping invalid value: {value_str}")
                         continue
                     
-                    # Arduino only sends sensor 0 data, so use sensor 0 for all
-                    sensor_num = 0
+                    # Use the actual sensor number from the Arduino output
                     key = f"B{board_num}S{sensor_num}{axis}"
                     
                     # Skip if we've already processed this key in this line
@@ -155,7 +158,11 @@ def get_serial_data():
                     return True
                     
             else:
-                print(f"No matches found in line: {line[:100]}...")
+                # Only print no matches for non-empty, non-debug lines
+                if line and not line.startswith("---") and not line.startswith("Board Configuration"):
+                    print(f"No matches found in line: {line[:50]}...")
+                    # Debug: show what pattern we're looking for
+                    print(f"Pattern expects: Board<number>Sensor<number><X/Y/Z>:<value>")
 
     except serial.SerialException as e:
         print(f"Serial error: {e}")
