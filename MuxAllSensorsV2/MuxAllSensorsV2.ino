@@ -30,7 +30,7 @@ struct SensorBoard {
 };
 
 // Constants for your hardware setup
-#define NUMBER_OF_BOARDS 20
+#define NUMBER_OF_BOARDS 8
 
 // Board configuration - modify this array to match your actual setup
 // Format: [5x, 5x, 5x, 1xC, 1xF] as mentioned in requirements
@@ -47,19 +47,7 @@ SensorBoard boardConfig[NUMBER_OF_BOARDS] = {
   // Continue pattern for remaining boards (modify as needed)
   {5, 5, {0x0C, 0x13, 0x12, 0x10, 0x11}, "5X"},  // Board 5
   {5, 5, {0x0C, 0x13, 0x12, 0x10, 0x11}, "5X"},  // Board 6
-  {5, 5, {0x0C, 0x13, 0x12, 0x10, 0x11}, "5X"},  // Board 7
-  {1, 1, {0x0C}, "1XC"}, // Board 8 - 1xC type
-  {1, 1, {0x0F}, "1XF"}, // Board 9 - 1xF type
-  {5, 5, {0x0C, 0x13, 0x12, 0x10, 0x11}, "5X"},  // Board 10
-  {5, 5, {0x0C, 0x13, 0x12, 0x10, 0x11}, "5X"},  // Board 11
-  {5, 5, {0x0C, 0x13, 0x12, 0x10, 0x11}, "5X"},  // Board 12
-  {1, 1, {0x0C}, "1XC"}, // Board 13 - 1xC type
-  {1, 1, {0x0F}, "1XF"}, // Board 14 - 1xF type
-  {5, 5, {0x0C, 0x13, 0x12, 0x10, 0x11}, "5X"},  // Board 15
-  {5, 5, {0x0C, 0x13, 0x12, 0x10, 0x11}, "5X"},  // Board 16
-  {5, 5, {0x0C, 0x13, 0x12, 0x10, 0x11}, "5X"},  // Board 17
-  {1, 1, {0x0C}, "1XC"}, // Board 18 - 1xC type
-  {1, 1, {0x0F}, "1XF"}  // Board 19 - 1xF type
+  {5, 5, {0x0C, 0x13, 0x12, 0x10, 0x11}, "5X"}
 };
 
 // Create a 2D array for the MLX90393 sensor objects and their data

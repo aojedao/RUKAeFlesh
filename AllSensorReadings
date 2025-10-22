@@ -11,7 +11,7 @@ SERIAL_PORT = '/dev/ttyACM0'    # CHANGE THIS to your Arduino's serial port (e.g
 BAUD_RATE = 115200      # CHANGE THIS to your Arduino's baud rate
 MAX_SAMPLES = 50       # Maximum number of data points to display on the graph
 REFRESH_RATE_MS = 0.1     # Animation refresh rate in milliseconds (lower = faster updates)
-MAX_BOARDS = 21         # Maximum number of boards to support (determines subplot layout)
+MAX_BOARDS = 8         # Maximum number of boards to support (determines subplot layout)
 LOG_FILENAME = f"arduino_readings_{datetime.datetime.now():%Y%m%d_%H%M%S}.txt"
 
 # Data structure to hold the history of readings for each signal
@@ -50,7 +50,7 @@ for key in ALL_KEYS:
 
 # Regular expression to parse the input: "Board0Sensor0X:-7.20" (Arduino output format)
 # Group 1: Board Number (0)
-# Group 2: Sensor Number (0)
+# Group 2: Sensor Number (0) 
 # Group 3: Axis (X)
 # Group 4: Value (-7.20)
 PARSE_PATTERN = re.compile(r"Board(\d+)Sensor(\d+)([XYZ]):\s*([-+]?\d*\.?\d+)")
@@ -176,11 +176,11 @@ def get_serial_data():
 
 # --- Plotting Setup ---
 
-# Calculate optimal subplot layout based on number of sensors (boards)
+# Calculate optimal subplot layout based on number of boards
 import math
-active_sensors = MAX_BOARDS  # Each board represents one sensor (S0, S1, S2, etc.)
-cols = int(math.ceil(math.sqrt(active_sensors)))
-rows = int(math.ceil(active_sensors / cols))
+active_boards = MAX_BOARDS  # Each subplot represents one board (B0, B1, B2, etc.)
+cols = int(math.ceil(math.sqrt(active_boards)))
+rows = int(math.ceil(active_boards / cols))
 
 # Create dynamic subplot configuration
 fig, axes = plt.subplots(nrows=rows, ncols=cols, figsize=(4*cols, 3*rows))
@@ -190,7 +190,7 @@ fig.suptitle('Arduino Sensor Readings Live Plot', fontsize=16)
 plt.subplots_adjust(hspace=0.5, wspace=0.4, right=0.85)
 
 # Flatten the array of axes for easier indexing (handle single plot case)
-if active_sensors == 1:
+if active_boards == 1:
     axes = [axes]
 elif rows == 1 or cols == 1:
     axes = axes.flatten() if hasattr(axes, 'flatten') else axes
@@ -201,35 +201,37 @@ else:
 lines = {}
 plot_index = 0
 
-# Organize plots by sensor number (each plot shows one sensor: S0, S1, S2, etc.)
-for sensor_num in range(0, active_sensors):
+# Organize plots by Board number (each plot shows one board: B0, B1, B2, etc.)
+# First row = Board 0, second row = Board 1, etc.
+# Each plot shows X, Y, Z for all sensors on that board
+for board_num in range(0, active_boards):
     if plot_index < len(axes):
         ax = axes[plot_index]
-        ax.set_title(f'S{sensor_num}', fontsize=10)
+        ax.set_title(f'Board {board_num}', fontsize=10)
         ax.tick_params(axis='x', rotation=45)
         ax.grid(True)
         
-        # List of keys for this sensor (from board sensor_num, sensor 0)
-        sensor_keys = []
+        # List of keys for this board (all sensors on this board)
+        board_keys = []
         
-        # Each "sensor" corresponds to a board number (S0 = Board 0, S1 = Board 1, etc.)
-        # Arduino sends Board{X}Sensor{Y} where Y is always 0
-        for axis in ['X', 'Y', 'Z']:
-            key = f"B{sensor_num}S0{axis}"
-            if key in DATA_STREAMS:  # Only add if key exists in data streams
-                sensor_keys.append(key)
+        # For each sensor on this board
+        for sensor_num in range(0, 5):  # Max 5 sensors per board
+            for axis in ['X', 'Y', 'Z']:
+                key = f"B{board_num}S{sensor_num}{axis}"
+                if key in DATA_STREAMS:  # Only add if key exists in data streams
+                    board_keys.append(key)
         
-        # Plot the initial line for each axis of this sensor
-        for key in sensor_keys:
+        # Plot the initial line for each sensor-axis combination on this board
+        for key in board_keys:
             # Initial plot: line, = ax.plot(X_data, Y_data, label)
             # Ensure both sample counter and data have the same length
             sample_list = list(SAMPLE_COUNTER)
             data_list = list(DATA_STREAMS.get(key, []))
             min_len = min(len(sample_list), len(data_list))
             
-            # Create label in format S{sensor_num}{axis} (e.g., "S0X", "S0Y", "S0Z")
-            axis_char = key[-1]  # Last character is the axis (X, Y, or Z)
-            axis_label = f"S{sensor_num}{axis_char}"
+            # Create label in format B{board}S{sensor}{axis} (e.g., "B0S0X", "B0S0Y", "B0S0Z")
+            # Extract board, sensor, and axis from key (key format: "B0S0X")
+            axis_label = key  # Use the key directly as it's already in the correct format
             
             if min_len > 0:
                 line, = ax.plot(sample_list[-min_len:], data_list[-min_len:], label=axis_label)
@@ -238,7 +240,7 @@ for sensor_num in range(0, active_sensors):
             lines[key] = line
             
         # Move legend outside the plot area to the right (only if there are lines to show)
-        if sensor_keys:
+        if board_keys:
             ax.legend(bbox_to_anchor=(1.1, 1), loc='upper left', fontsize='xx-small')
         plot_index += 1
 
@@ -273,9 +275,9 @@ def animate(i):
             if min_len > 0:
                 line.set_data(sample_numbers[-min_len:], data_values[-min_len:])
 
-        # Rescale and redraw all visible sensor plots
+        # Rescale and redraw all visible board plots
         for i, ax in enumerate(axes):
-            if i < active_sensors and sample_numbers:
+            if i < active_boards and sample_numbers:
                 ax.relim()
                 ax.autoscale_view()
         
