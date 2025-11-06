@@ -36,18 +36,18 @@ struct SensorBoard {
 // Format: [5x, 5x, 5x, 1xC, 1xF] as mentioned in requirements
 SensorBoard boardConfig[NUMBER_OF_BOARDS] = {
   // First three boards are 5X type (5 sensors each)
-  {5, 5, {0x0C, 0x13, 0x12, 0x10, 0x11}, "5X"},  // Board 0
-  {5, 5, {0x0C, 0x13, 0x12, 0x10, 0x11}, "5X"},  // Board 1
-  {5, 5, {0x0C, 0x13, 0x12, 0x10, 0x11}, "5X"},  // Board 2
+  {5, 5, {0x0C, 0x13, 0x12, 0x10, 0x11}, "5X"},  // Board 0 - Palm 1
+  {5, 5, {0x0C, 0x13, 0x12, 0x10, 0x11}, "5X"},  // Board 1 - Palm 2
+  {5, 5, {0x0C, 0x13, 0x12, 0x10, 0x11}, "5X"},  // Board 2 - Palm 3
   
   // Single sensor boards with ONE specific address each
   {1, 1, {0x0C}, "1XC"}, // Board 3 - 1xC type (only address 0x0C)
   {1, 1, {0x0F}, "1XF"}, // Board 4 - 1xF type (only address 0x0F)
   
   // Continue pattern for remaining boards (modify as needed)
-  {5, 5, {0x0C, 0x13, 0x12, 0x10, 0x11}, "5X"},  // Board 5
-  {5, 5, {0x0C, 0x13, 0x12, 0x10, 0x11}, "5X"},  // Board 6
-  {5, 5, {0x0C, 0x13, 0x12, 0x10, 0x11}, "5X"}
+  {1, 1, {0x0C}, "1XC"},  // Board 5
+  {1, 1, {0x0F}, "1XF"},  // Board 6
+  {1, 1, {0x0F}, "1XF"}   // Board 7
 };
 
 // Create a 2D array for the MLX90393 sensor objects and their data
