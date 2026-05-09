@@ -8,8 +8,8 @@ import sys
 import argparse
 
 # --- Configuration ---
-SERIAL_PORT = '/dev/ttyACM0'    # CHANGE THIS to your Arduino's serial port (e.g., 'COM3' or '/dev/ttyACM0')
-BAUD_RATE = 115200      # CHANGE THIS to your Arduino's baud rate
+DEFAULT_SERIAL_PORT = '/dev/ttyACM0'    # CHANGE THIS to your Arduino's serial port (e.g., 'COM3' or '/dev/ttyACM0')
+DEFAULT_BAUD_RATE = 115200      # CHANGE THIS to your Arduino's baud rate
 MAX_SAMPLES = 50       # Maximum number of data points to display on the graph
 REFRESH_RATE_MS = 10     # Animation refresh rate in milliseconds
 MAX_BOARDS = 8         # Maximum number of boards to support (determines subplot layout)
@@ -23,6 +23,16 @@ MAX_LINES_PER_CYCLE = 5
 # Key format: "BoardXSensorYAxis" e.g., "B1S0X"
 DATA_STREAMS = {}
 
+parser = argparse.ArgumentParser(add_help=False)
+parser.add_argument('--serial-port', default=DEFAULT_SERIAL_PORT)
+parser.add_argument('--baud-rate', type=int, default=DEFAULT_BAUD_RATE)
+parser.add_argument('--serial-test', action='store_true')
+parser.add_argument('--serial-test-seconds', type=int, default=5)
+args, _ = parser.parse_known_args()
+
+SERIAL_PORT = args.serial_port
+BAUD_RATE = args.baud_rate
+
 # Define all unique data streams based on your description
 # Boards 1-3 (5 sensors each): BxSyAxis (x=1..3, y=0..4, Axis=X,Y,Z) -> 3 * 5 * 3 = 45 streams
 # Boards 4-9 (1 sensor each): BxS0Axis (x=4..9, y=0, Axis=X,Y,Z) -> 6 * 1 * 3 = 18 streams
@@ -35,7 +45,12 @@ def generate_stream_keys():
     for board in range(0, MAX_BOARDS):
         # Board types: 5X boards have sensors 0-4, 1X boards have sensor 0
         # For simplicity, generate keys for all possible sensors (0-4) for each board
-        for sensor in range(0, 5):  # Max 5 sensors per board
+        if (board <= 2):
+            for sensor in range(0, 5):  # Max 5 sensors per board
+                for axis in ['X', 'Y', 'Z']:
+                    keys.append(f"B{board}S{sensor}{axis}")
+        else:
+            sensor=0
             for axis in ['X', 'Y', 'Z']:
                 keys.append(f"B{board}S{sensor}{axis}")
     return keys
@@ -329,11 +344,6 @@ def animate(i):
 # --- Main Execution ---
 
 try:
-    parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument('--serial-test', action='store_true')
-    parser.add_argument('--serial-test-seconds', type=int, default=5)
-    args, _ = parser.parse_known_args()
-
     if args.serial_test:
         run_serial_test(args.serial_test_seconds)
         ser.close()

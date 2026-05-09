@@ -12,16 +12,15 @@
 #include <Wire.h>
 #include <MLX90393.h>
 
-//#define Serial SERIAL_PORT_USBVIRTUAL  // use default Serial if your board doesn't define this
-
 // MLX90393 objects and data buffers
 static const uint8_t NUM_SENSORS = 5;
 MLX90393 mlx[NUM_SENSORS];
 MLX90393::txyz dataBuf[NUM_SENSORS];
+bool mlxInitialized[NUM_SENSORS] = {false};
 
 // Known sequences
 const uint8_t TARGETS_ALL_CONSEC[NUM_SENSORS] = {0x0C, 0x0D, 0x0E, 0x0F, 0x10};
-const uint8_t TARGETS_WHITE_SET[NUM_SENSORS]   = {0x0C, 0x10, 0x11, 0x12, 0x13};
+const uint8_t TARGETS_WHITE_SET[NUM_SENSORS]   = {0x0F, 0x10, 0x11, 0x12, 0x13};
 
 // Forward decls
 void scanI2C(uint8_t* found, uint8_t& count);
@@ -33,8 +32,8 @@ void setup() {
   Serial.begin(115200);
   while (!Serial) { delay(5); }
 
-  Wire.begin();
-  Wire.setClock(400000);
+  Wire1.begin();
+  Wire1.setClock(400000);
   delay(10);
 
   uint8_t found[16] = {0};
@@ -58,7 +57,7 @@ void setup() {
 
   // Initialize sensors in the chosen order
   for (uint8_t i = 0; i < orderedCount; ++i) {
-    byte status = mlx[i].begin(ordered[i], -1, Wire);
+    byte status = mlx[i].begin(ordered[i], -1, Wire1);
     Serial.print(F("Init MLX[")); Serial.print(i); Serial.print(F("] @0x"));
     Serial.print(ordered[i], HEX);
     Serial.print(F(" status=")); Serial.println(status, HEX);
@@ -69,12 +68,18 @@ void setup() {
     mlx[i].setDigitalFiltering(0x4);
 
     // Start burst mode (Temp + X + Y + Z) = 0xF
-    mlx[i].startBurst(0xF);
+    if (status == 0) {
+      mlx[i].startBurst(0xF);
+      mlxInitialized[i] = true;
+    } else {
+      mlxInitialized[i] = false;
+    }
   }
 
   // If fewer than 5 were found, zero-fill the remaining buffers so the binary record stays a fixed length if you need it
   for (uint8_t i = orderedCount; i < NUM_SENSORS; ++i) {
     dataBuf[i] = {0, 0, 0, 0};
+    mlxInitialized[i] = false;
   }
 
   Serial.print(F("Streaming order: "));
@@ -87,12 +92,30 @@ void setup() {
 void loop() {
   // Read in the same order the sensors were initialized
   for (uint8_t i = 0; i < NUM_SENSORS; ++i) {
-    mlx[i].readBurstData(dataBuf[i]);  // if that index wasn't initialized (no device), the buffer remains whatever it was
+    if (mlxInitialized[i]) {
+      mlx[i].readBurstData(dataBuf[i]);
+    } else {
+      dataBuf[i].x = 0;
+      dataBuf[i].y = 0;
+      dataBuf[i].z = 0;
+      dataBuf[i].t = 0;
+    }
   }
 
-  // Write binary records in-order
+  // Write readable CSV records so Serial Monitor output is human-readable at 115200.
   for (uint8_t i = 0; i < NUM_SENSORS; ++i) {
-    Serial.write((uint8_t*)&dataBuf[i], sizeof(dataBuf[i]));
+    Serial.print(i);
+    Serial.print(':');
+    Serial.print(dataBuf[i].x, 6);
+    Serial.print(':');
+    Serial.print(dataBuf[i].y, 6);
+    Serial.print(':');
+    Serial.print(dataBuf[i].z, 6);
+    Serial.print(':');
+    Serial.print(dataBuf[i].t, 6);
+    if (i < (NUM_SENSORS - 1)) {
+      Serial.print('\t');
+    }
   }
   Serial.println();
 
@@ -104,8 +127,8 @@ void loop() {
 void scanI2C(uint8_t* found, uint8_t& count) {
   count = 0;
   for (uint8_t addr = 0x08; addr <= 0x77; addr++) {
-    Wire.beginTransmission(addr);
-    uint8_t err = Wire.endTransmission();
+    Wire1.beginTransmission(addr);
+    uint8_t err = Wire1.endTransmission();
     if (err == 0) {
       found[count++] = addr;
       if (count >= 16) break;

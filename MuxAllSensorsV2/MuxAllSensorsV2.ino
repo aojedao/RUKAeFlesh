@@ -46,7 +46,7 @@ SensorBoard boardConfig[NUMBER_OF_BOARDS] = {
   
   // Continue pattern for remaining boards (modify as needed)
   {1, 1, {0x0C}, "1XC"},  // Board 5
-  {1, 1, {0x0F}, "1XF"},  // Board 6
+  {1, 1, {0x0C}, "1XC"},  // Board 6
   {1, 1, {0x0F}, "1XF"}   // Board 7
 };
 
